@@ -65,6 +65,10 @@
         body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, body.dark-mode h4, body.dark-mode h5 {
             color: var(--light-text);
         }
+        
+        body.dark-mode p {
+            color: var(--light-text);
+        }
 
         body.dark-mode .form-control,
         body.dark-mode .form-select {
@@ -92,6 +96,10 @@
         body.dark-mode .table {
             color: var(--light-text);
         }
+
+        body.dark-mode th {
+            color: var(--light-text);
+        }
         
         body.dark-mode .table-striped>tbody>tr:nth-of-type(odd)>* {
             --bs-table-accent-bg: rgba(255, 255, 255, 0.05);
@@ -99,6 +107,15 @@
 
         body.dark-mode .card-item .card-title, body.dark-mode .text-muted {
             color: #a0aec0 !important;
+        }
+
+        body.dark-mode .card-value {
+            color: var(--light-text);
+        }
+        
+        body.dark-mode .list-group-item {
+            background-color: transparent;
+            color: var(--light-text);
         }
 
         /* --- General Layout & Components --- */
@@ -286,7 +303,7 @@
 
                 <div class="row g-4 mb-4">
                     <!-- Target Progress Card -->
-                    <div class="col-lg-6">
+                    <div class="col-lg-4">
                         <div class="card card-body h-100">
                             <h5 class="card-title mb-3">Target Progress</h5>
                              <div class="row w-100 justify-content-around align-items-center flex-grow-1">
@@ -306,7 +323,7 @@
                         </div>
                     </div>
                     <!-- Profit Forecasts Card -->
-                    <div class="col-lg-6">
+                    <div class="col-lg-4">
                         <div class="card card-body h-100">
                             <h5 class="card-title mb-3">Profit Forecasts (5-day week)</h5>
                             <ul class="list-group list-group-flush w-100">
@@ -314,6 +331,17 @@
                                 <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>3 Months:</span> <span class="fw-bold" id="threeMonthForecast">£0.00</span></li>
                                 <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>6 Months:</span> <span class="fw-bold" id="sixMonthForecast">£0.00</span></li>
                                 <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>12 Months:</span> <span class="fw-bold" id="twelveMonthForecast">£0.00</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                     <!-- Average Profits Card -->
+                    <div class="col-lg-4">
+                        <div class="card card-body h-100">
+                            <h5 class="card-title mb-3">Average Profits (5-day week)</h5>
+                            <ul class="list-group list-group-flush w-100">
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>Avg. Daily:</span> <span class="fw-bold" id="averageDailyProfit">£0.00</span></li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>Avg. Weekly:</span> <span class="fw-bold" id="averageWeeklyProfit">£0.00</span></li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>Avg. Monthly:</span> <span class="fw-bold" id="averageMonthlyProfit">£0.00</span></li>
                             </ul>
                         </div>
                     </div>
@@ -716,9 +744,16 @@
             document.getElementById('monthlyProfit').textContent = formatCurrency(monthly);
             document.getElementById('overallProfit').textContent = formatCurrency(overall);
 
-            // Update Forecasts
+            
             const totalDaysWithTrades = dailyProfitsMap.size;
             const averageDailyProfit = totalDaysWithTrades > 0 ? overall / totalDaysWithTrades : 0;
+            
+            // Update Average Profits Card
+            document.getElementById('averageDailyProfit').textContent = formatCurrency(averageDailyProfit);
+            document.getElementById('averageWeeklyProfit').textContent = formatCurrency(averageDailyProfit * 5);
+            document.getElementById('averageMonthlyProfit').textContent = formatCurrency(averageDailyProfit * 20);
+
+            // Update Forecasts Card
             document.getElementById('oneMonthForecast').textContent = formatCurrency(averageDailyProfit * 20);
             document.getElementById('threeMonthForecast').textContent = formatCurrency(averageDailyProfit * 60);
             document.getElementById('sixMonthForecast').textContent = formatCurrency(averageDailyProfit * 120);
