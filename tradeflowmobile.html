@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base target="_top">
+    <title>CFD Trade Tracker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- PWA Manifest and Theme Color -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --light-gray: #f3f4f6;
+            --medium-gray: #6b7280;
+            --dark-gray: #1f2937;
+            --light-bg: #ffffff;
+            --dark-bg: #1a202c;
+            --dark-card: #2d3748;
+            --light-text: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark-gray);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- Dark Mode --- */
+        body.dark-mode {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+        }
+
+        body.dark-mode .navbar {
+            background-color: var(--dark-card);
+            border-bottom-color: #4a5568;
+        }
+
+        body.dark-mode .navbar-brand,
+        body.dark-mode .nav-link,
+        body.dark-mode .navbar-toggler-icon {
+            color: var(--light-text);
+        }
+        
+        body.dark-mode .navbar-toggler {
+             border-color: var(--medium-gray);
+        }
+
+        body.dark-mode .card {
+            background-color: var(--dark-card);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, body.dark-mode h4, body.dark-mode h5 {
+            color: var(--light-text);
+        }
+
+        body.dark-mode .form-control,
+        body.dark-mode .form-select {
+            background-color: #4a5568;
+            border-color: var(--medium-gray);
+            color: var(--light-text);
+        }
+        
+        body.dark-mode .form-control:disabled {
+             background-color: #3e4c5f;
+        }
+
+        body.dark-mode .form-control::placeholder {
+            color: #a0aec0;
+        }
+        
+        body.dark-mode .modal-content {
+            background-color: var(--dark-card);
+        }
+        
+        body.dark-mode .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
+        }
+
+        body.dark-mode .table {
+            color: var(--light-text);
+        }
+        
+        body.dark-mode .table-striped>tbody>tr:nth-of-type(odd)>* {
+            --bs-table-accent-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        body.dark-mode .card-item .card-title, body.dark-mode .text-muted {
+            color: #a0aec0 !important;
+        }
+
+        /* --- General Layout & Components --- */
+        .navbar {
+            background-color: var(--light-bg);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .nav-link {
+            font-weight: 500;
+            color: var(--medium-gray);
+        }
+        
+        .nav-link.active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .content-page {
+            display: none;
+        }
+
+        .content-page.active {
+            display: block;
+        }
+
+        .card {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-item {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .card-icon {
+            background-color: #e0e7ff;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .card-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-title {
+            font-size: 0.875rem;
+            color: var(--medium-gray);
+            margin-bottom: 0.5rem;
+        }
+        
+        .card-change {
+            font-size: 0.875rem;
+        }
+        .card-change.positive { color: #10b981; }
+        .card-change.negative { color: #ef4444; }
+
+        .chart-card canvas {
+            max-height: 300px;
+            width: 100%;
+        }
+
+        /* --- Mobile Specific Add-Trade Form --- */
+        #add-trade-form-container .trade-entry {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        
+        body.dark-mode #add-trade-form-container .trade-entry {
+             background-color: #4a5568;
+             border-color: var(--medium-gray);
+        }
+
+        .delete-trade-entry-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+        }
+
+        /* Loading Overlay */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        body.dark-mode #loadingOverlay {
+            background: rgba(26, 32, 44, 0.9);
+        }
+        
+        /* In-place editing styles */
+        #tradeTable td.editable {
+            cursor: pointer;
+            position: relative;
+        }
+
+        #tradeTable td.editable:hover::after {
+            content: '✎';
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <datalist id="symbol-list"></datalist>
+
+    <div id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p id="loadingMessage">Initializing...</p>
+    </div>
+
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="d-inline-block align-text-top me-2">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" /><path d="M2 17L12 22L22 17L12 12L2 17Z" fill="currentColor" />
+                </svg>
+                TradeFlow
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-section="dashboardOverviewSection">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="tradeListSection">Trade List</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="showTradeFormLink">Add Trades</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="settingsSection">Settings</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="container my-4">
+        <div id="contentSectionsWrapper">
+            <!-- Dashboard Section -->
+            <div id="dashboardOverviewSection" class="content-page active">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4 mb-4">
+                    <div class="col"><div class="card card-item"><div class="card-value" id="dailyProfit">£0.00</div><div class="card-title">Daily Profit</div></div></div>
+                    <div class="col"><div class="card card-item"><div class="card-value" id="weeklyProfit">£0.00</div><div class="card-title">Weekly Profit</div></div></div>
+                    <div class="col"><div class="card card-item"><div class="card-value" id="monthlyProfit">£0.00</div><div class="card-title">Monthly Profit</div></div></div>
+                    <div class="col"><div class="card card-item"><div class="card-value" id="overallProfit">£0.00</div><div class="card-title">Overall Profit</div></div></div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <!-- Target Progress Card -->
+                    <div class="col-lg-6">
+                        <div class="card card-body h-100">
+                            <h5 class="card-title mb-3">Target Progress</h5>
+                             <div class="row w-100 justify-content-around align-items-center flex-grow-1">
+                                <div class="col-sm-4 text-center mb-3">
+                                    <h6 class="mb-1 text-muted">Daily</h6>
+                                    <div style="width: 120px; height: 120px; margin: auto;"><canvas id="dailyTargetChart"></canvas></div>
+                                </div>
+                                <div class="col-sm-4 text-center mb-3">
+                                    <h6 class="mb-1 text-muted">Weekly</h6>
+                                    <div style="width: 120px; height: 120px; margin: auto;"><canvas id="weeklyTargetChart"></canvas></div>
+                                </div>
+                                <div class="col-sm-4 text-center">
+                                    <h6 class="mb-1 text-muted">Monthly</h6>
+                                    <div style="width: 120px; height: 120px; margin: auto;"><canvas id="monthlyTargetChart"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Profit Forecasts Card -->
+                    <div class="col-lg-6">
+                        <div class="card card-body h-100">
+                            <h5 class="card-title mb-3">Profit Forecasts (5-day week)</h5>
+                            <ul class="list-group list-group-flush w-100">
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>1 Month:</span> <span class="fw-bold" id="oneMonthForecast">£0.00</span></li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>3 Months:</span> <span class="fw-bold" id="threeMonthForecast">£0.00</span></li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>6 Months:</span> <span class="fw-bold" id="sixMonthForecast">£0.00</span></li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0 bg-transparent border-0"><span>12 Months:</span> <span class="fw-bold" id="twelveMonthForecast">£0.00</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3 class="h5">Overall Profit Over Time</h3>
+                    <canvas id="overallProfitChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Trade List Section -->
+            <div id="tradeListSection" class="content-page">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="h4 card-title mb-4">CFD Trade List</h2>
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                            <input type="text" class="form-control" id="filterSymbol" placeholder="Filter by Symbol..." style="max-width: 200px;">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="groupByStockToggle">
+                                <label class="form-check-label" for="groupByStockToggle">Group by Stock</label>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="tradeTable">
+                                <thead></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div id="settingsSection" class="content-page">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card card-body h-100">
+                            <h5 class="card-title mb-3">Appearance</h5>
+                            <div class="form-check form-switch d-flex align-items-center justify-content-between w-100 p-0">
+                                <label class="form-check-label fs-5" for="darkModeToggleSetting">Dark Mode</label>
+                                <input class="form-check-input" type="checkbox" id="darkModeToggleSetting" style="transform: scale(1.5);">
+                            </div>
+                        </div>
+                    </div>
+                     <div class="col-md-6">
+                        <div class="card card-body h-100">
+                             <h5 class="card-title mb-3">Profit Targets</h5>
+                             <p class="text-muted">Set your daily, weekly, and monthly profit goals.</p>
+                             <button id="setTargetsButton" class="btn btn-primary mt-auto w-100">Set Profit Targets</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card card-body h-100">
+                            <h5 class="card-title mb-3">Data Management</h5>
+                            <p class="text-muted">Export your trade data or permanently delete all locally stored app settings.</p>
+                            <div class="d-flex gap-2 mt-auto">
+                                <button id="exportCsvButton" class="btn btn-info w-100">Export CSV</button>
+                                <button id="deleteAllDataButtonSetting" class="btn btn-danger w-100">Delete Local Data</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-12">
+                        <div class="card card-body">
+                            <h5 class="card-title mb-3">GitHub Gist Integration</h5>
+                            <p class="text-muted">Configure your Gist ID and Personal Access Token (PAT) for cloud trade data storage.</p>
+                            <div class="mb-3"><label for="gistIdInput" class="form-label">Gist ID</label><input type="text" class="form-control" id="gistIdInput" placeholder="Enter your Gist ID"></div>
+                            <div class="mb-3"><label for="githubPatInput" class="form-label">GitHub PAT (gist scope)</label><input type="password" class="form-control" id="githubPatInput" placeholder="Enter your GitHub PAT"></div>
+                            <div class="mb-3"><label for="gistFilenameInput" class="form-label">Gist Filename (.json)</label><input type="text" class="form-control" id="gistFilenameInput" value="tradelist.json"></div>
+                            <button id="saveGistSettingsButton" class="btn btn-primary mt-2 w-100">Save Gist Settings</button>
+                            <div id="gistSettingsMessageBox" class="alert mt-3" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Trade Modal -->
+    <div class="modal fade" id="addTradeModal" tabindex="-1" aria-labelledby="addTradeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTradeModalLabel">Add New Trades</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="add-trade-form-container">
+                        <!-- Trade entry forms will be injected here by JS -->
+                    </div>
+                    <button id="addAnotherTradeBtn" class="btn btn-outline-secondary mt-3">Add Another Trade</button>
+                    <div id="bulkTradeMessageBox" class="alert mt-3" style="display:none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveBulkTradesButton">Save Trades</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Set Targets Modal -->
+    <div class="modal fade" id="setTargetsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Set Profit Targets</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label for="monthlyTargetInput" class="form-label">Monthly Target (£)</label><input type="number" class="form-control" id="monthlyTargetInput" step="100"></div>
+                    <div class="mb-3"><label class="form-label">Weekly Target (Calculated)</label><input type="text" class="form-control" id="weeklyTargetDisplay" readonly></div>
+                    <div class="mb-3"><label class="form-label">Daily Target (Calculated)</label><input type="text" class="form-control" id="dailyTargetDisplay" readonly></div>
+                    <div id="targetMessageBox" class="alert" style="display:none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="saveTargetsButton">Save Targets</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div class="modal fade" id="customConfirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title" id="confirmModalTitle">Confirm</h5></div>
+                <div class="modal-body"><p id="confirmModalMessage">Are you sure?</p></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="confirmModalCancel">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmModalOK">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // --- GitHub Gist Configuration ---
+        let GIST_ID = ''; 
+        let GITHUB_PAT = ''; 
+        let GIST_FILENAME = 'tradelist.json';
+
+        // --- IndexedDB Setup ---
+        const DB_NAME = 'TradeFlowDB_Mobile';
+        const DB_VERSION = 1;
+        const STORE_NAMES = {
+            APP_SETTINGS: 'appSettings',
+            GIST_SETTINGS: 'gistSettings'
+        };
+        let db;
+
+        async function initDB() {
+            db = await idb.openDB(DB_NAME, DB_VERSION, {
+                upgrade(db) {
+                    if (!db.objectStoreNames.contains(STORE_NAMES.APP_SETTINGS)) {
+                        db.createObjectStore(STORE_NAMES.APP_SETTINGS, { keyPath: 'key' });
+                    }
+                    if (!db.objectStoreNames.contains(STORE_NAMES.GIST_SETTINGS)) {
+                        db.createObjectStore(STORE_NAMES.GIST_SETTINGS, { keyPath: 'key' });
+                    }
+                },
+            });
+        }
+
+        // --- Global state & Modals ---
+        let allTrades = []; 
+        let sortConfig = { key: 'openTime', direction: 'desc' };
+        let isGroupedByStock = false;
+        let addTradeModalInstance, confirmModalInstance, setTargetsModalInstance;
+        let overallProfitChart, dailyTargetChart, weeklyTargetChart, monthlyTargetChart;
+        let monthlyTargetValue = 0, weeklyTargetValue = 0, dailyTargetValue = 0;
+
+        // --- Utility Functions ---
+        const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const formatCurrency = (value) => `£${(value || 0).toFixed(2)}`;
+        
+        function showLoading(show, message = "Loading...") {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                document.getElementById('loadingMessage').textContent = message;
+                overlay.style.display = show ? 'flex' : 'none';
+            }
+        }
+
+        function showMessage(message, type = 'info', messageBoxId) {
+            const messageBox = document.getElementById(messageBoxId);
+            if (!messageBox) return;
+            messageBox.className = `alert alert-${type === 'error' ? 'danger' : type}`;
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            setTimeout(() => { messageBox.style.display = 'none'; }, 5000);
+        }
+
+        function customConfirm(title, message) {
+            return new Promise((resolve) => {
+                document.getElementById('confirmModalTitle').textContent = title;
+                document.getElementById('confirmModalMessage').textContent = message;
+                confirmModalInstance.show();
+
+                const okButton = document.getElementById('confirmModalOK');
+                const cancelButton = document.getElementById('confirmModalCancel');
+
+                const okListener = () => {
+                    confirmModalInstance.hide();
+                    resolve(true);
+                    cleanup();
+                };
+                const cancelListener = () => {
+                    confirmModalInstance.hide();
+                    resolve(false);
+                    cleanup();
+                };
+                const cleanup = () => {
+                    okButton.removeEventListener('click', okListener);
+                    cancelButton.removeEventListener('click', cancelListener);
+                };
+
+                okButton.addEventListener('click', okListener, { once: true });
+                cancelButton.addEventListener('click', cancelListener, { once: true });
+            });
+        }
+
+
+        // --- GitHub Gist Functions ---
+        async function fetchTradesFromGist() {
+            if (!GIST_ID) {
+                console.warn("Gist ID not configured.");
+                return [];
+            }
+            showLoading(true, `Fetching trades from GitHub Gist...`);
+            try {
+                const response = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (!response.ok) throw new Error(`GitHub API error: ${response.statusText}`);
+                const data = await response.json();
+                if (data.files && data.files[GIST_FILENAME]) {
+                    return JSON.parse(data.files[GIST_FILENAME].content);
+                }
+                return [];
+            } catch (error) {
+                console.error("Error fetching from Gist:", error);
+                alert(`Failed to load trades from Gist: ${error.message}.`);
+                return [];
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function updateGistWithTrades(tradesData) {
+            if (!GIST_ID || !GITHUB_PAT) {
+                alert("Gist ID or GitHub PAT not configured. Cannot save trades. Please set them in Settings.");
+                return;
+            }
+            showLoading(true, "Saving trades to GitHub Gist...");
+            try {
+                const payload = {
+                    files: { [GIST_FILENAME]: { content: JSON.stringify(tradesData, null, 2) } }
+                };
+                const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `token ${GITHUB_PAT}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`GitHub API error: ${response.statusText}`);
+            } catch (error) {
+                console.error("Error updating Gist:", error);
+                alert(`Failed to save trades to Gist: ${error.message}.`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function saveGistSettings() {
+            const newGistId = document.getElementById('gistIdInput').value.trim();
+            const newGithubPat = document.getElementById('githubPatInput').value.trim();
+            const newGistFilename = document.getElementById('gistFilenameInput').value.trim();
+
+            if (!newGistId || !newGithubPat || !newGistFilename) {
+                showMessage("All Gist settings fields are required.", 'warning', 'gistSettingsMessageBox');
+                return;
+            }
+
+            try {
+                await db.put(STORE_NAMES.GIST_SETTINGS, { key: 'gistId', value: newGistId });
+                await db.put(STORE_NAMES.GIST_SETTINGS, { key: 'githubPat', value: newGithubPat });
+                await db.put(STORE_NAMES.GIST_SETTINGS, { key: 'gistFilename', value: newGistFilename });
+
+                GIST_ID = newGistId;
+                GITHUB_PAT = newGithubPat;
+                GIST_FILENAME = newGistFilename;
+
+                showMessage("Gist settings saved! Re-loading trades...", 'success', 'gistSettingsMessageBox');
+                allTrades = await fetchTradesFromGist();
+                refreshAllDataAndUI();
+            } catch (error) {
+                showMessage(`Failed to save Gist settings: ${error.message}`, 'error', 'gistSettingsMessageBox');
+            }
+        }
+
+        // --- Core Data and UI Functions ---
+        function refreshAllDataAndUI() {
+            const tradesToDisplay = filterTrades(allTrades);
+            renderTrades(sortTrades(tradesToDisplay));
+            updateProfitCards(allTrades);
+            updateSymbolDatalist();
+        }
+
+        async function deleteAllUserData() {
+            const confirmed = await customConfirm('Confirm Deletion', 'Delete all locally stored settings (like dark mode and profit targets)? Your trade data on GitHub will NOT be deleted.');
+            if (!confirmed) return;
+            showLoading(true, "Deleting local data...");
+            await db.clear(STORE_NAMES.APP_SETTINGS);
+            alert("Local app settings have been deleted.");
+            // Reset relevant state
+            monthlyTargetValue = 0;
+            weeklyTargetValue = 0;
+            dailyTargetValue = 0;
+            refreshAllDataAndUI();
+            showLoading(false);
+        };
+
+        function renderTrades(trades) {
+            const tbody = document.querySelector('#tradeTable tbody');
+            const thead = document.querySelector('#tradeTable thead');
+            if (!tbody || !thead) return;
+            tbody.innerHTML = '';
+
+            if (isGroupedByStock) {
+                thead.innerHTML = `<tr><th>Stock</th><th>Total Profit</th><th>Trades</th></tr>`;
+                const grouped = trades.reduce((acc, trade) => {
+                    const symbol = trade.symbol || 'N/A';
+                    if (!acc[symbol]) acc[symbol] = { totalProfit: 0, count: 0 };
+                    acc[symbol].totalProfit += trade.profit || 0;
+                    acc[symbol].count++;
+                    return acc;
+                }, {});
+                Object.entries(grouped).forEach(([symbol, data]) => {
+                    const profitClass = data.totalProfit >= 0 ? 'text-success' : 'text-danger';
+                    tbody.innerHTML += `<tr><td><strong>${symbol}</strong></td><td class="${profitClass}">${formatCurrency(data.totalProfit)}</td><td>${data.count}</td></tr>`;
+                });
+            } else {
+                thead.innerHTML = `<tr><th>Stock</th><th>Profit</th><th>Date</th><th>Actions</th></tr>`;
+                trades.forEach(trade => {
+                    const pnlClass = (trade.profit || 0) >= 0 ? 'text-success' : 'text-danger';
+                    const tradeDate = trade.openTime ? new Date(trade.openTime).toLocaleDateString('en-GB') : 'N/A';
+                    const row = tbody.insertRow();
+                    row.dataset.tradeId = trade.id;
+                    row.innerHTML = `
+                        <td class="editable" data-field="symbol" contenteditable="true">${trade.symbol || ''}</td>
+                        <td class="editable" data-field="profit" contenteditable="true"><span class="${pnlClass}">${(trade.profit || 0).toFixed(2)}</span></td>
+                        <td class="editable" data-field="openTime" contenteditable="true">${tradeDate}</td>
+                        <td><button class="btn btn-sm btn-danger delete-trade-btn">&times;</button></td>
+                    `;
+                });
+            }
+        }
+
+        function sortTrades(trades) {
+            return [...trades].sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                const direction = sortConfig.direction === 'asc' ? 1 : -1;
+                if (valA < valB) return -1 * direction;
+                if (valA > valB) return 1 * direction;
+                return 0;
+            });
+        }
+
+        function filterTrades(trades) {
+            const filterSymbol = document.getElementById('filterSymbol')?.value.toLowerCase().trim() || '';
+            if (!filterSymbol) return trades;
+            return trades.filter(trade => (trade.symbol || '').toLowerCase().includes(filterSymbol));
+        }
+
+        function updateProfitCards(trades) {
+            let daily = 0, weekly = 0, monthly = 0, overall = 0;
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 1);
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            const dailyProfitsMap = new Map();
+            trades.forEach(trade => {
+                const pnl = trade.profit || 0;
+                const tradeDate = new Date(trade.openTime);
+                if (isNaN(tradeDate.getTime())) return;
+                
+                const dateKey = tradeDate.toISOString().slice(0, 10);
+                dailyProfitsMap.set(dateKey, (dailyProfitsMap.get(dateKey) || 0) + pnl);
+
+                overall += pnl;
+                if (tradeDate >= startOfDay) daily += pnl;
+                if (tradeDate >= startOfWeek) weekly += pnl;
+                if (tradeDate >= startOfMonth) monthly += pnl;
+            });
+
+            document.getElementById('dailyProfit').textContent = formatCurrency(daily);
+            document.getElementById('weeklyProfit').textContent = formatCurrency(weekly);
+            document.getElementById('monthlyProfit').textContent = formatCurrency(monthly);
+            document.getElementById('overallProfit').textContent = formatCurrency(overall);
+
+            // Update Forecasts
+            const totalDaysWithTrades = dailyProfitsMap.size;
+            const averageDailyProfit = totalDaysWithTrades > 0 ? overall / totalDaysWithTrades : 0;
+            document.getElementById('oneMonthForecast').textContent = formatCurrency(averageDailyProfit * 20);
+            document.getElementById('threeMonthForecast').textContent = formatCurrency(averageDailyProfit * 60);
+            document.getElementById('sixMonthForecast').textContent = formatCurrency(averageDailyProfit * 120);
+            document.getElementById('twelveMonthForecast').textContent = formatCurrency(averageDailyProfit * 240);
+
+            // Update Target Charts
+            if (dailyTargetChart) {
+                dailyTargetChart.data.datasets[0].data = [daily, Math.max(0, dailyTargetValue - daily)];
+                dailyTargetChart.update();
+            }
+            if (weeklyTargetChart) {
+                weeklyTargetChart.data.datasets[0].data = [weekly, Math.max(0, weeklyTargetValue - weekly)];
+                weeklyTargetChart.update();
+            }
+            if (monthlyTargetChart) {
+                monthlyTargetChart.data.datasets[0].data = [monthly, Math.max(0, monthlyTargetValue - monthly)];
+                monthlyTargetChart.update();
+            }
+
+            // Update Main Profit Chart
+            const sortedTrades = [...trades].sort((a, b) => new Date(a.openTime) - new Date(b.openTime));
+            let cumulativeProfit = 0;
+            const chartData = sortedTrades.map(trade => {
+                cumulativeProfit += trade.profit || 0;
+                return { x: new Date(trade.openTime), y: cumulativeProfit };
+            });
+
+            if (overallProfitChart) {
+                overallProfitChart.data.datasets[0].data = chartData;
+                overallProfitChart.update();
+            }
+        }
+        
+        function updateSymbolDatalist() {
+            const uniqueSymbols = [...new Set(allTrades.map(trade => trade.symbol?.toUpperCase()).filter(Boolean))];
+            const datalist = document.getElementById('symbol-list');
+            if (datalist) {
+                datalist.innerHTML = uniqueSymbols.map(s => `<option value="${s}"></option>`).join('');
+            }
+        }
+
+        function addTradeEntryForm() {
+            const container = document.getElementById('add-trade-form-container');
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'trade-entry';
+            const now = new Date();
+            const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+            const defaultDateValue = localDate.toISOString().slice(0, 16);
+
+            entryDiv.innerHTML = `
+                <button type="button" class="btn-close delete-trade-entry-btn" aria-label="Delete"></button>
+                <div class="mb-3">
+                    <label class="form-label">Symbol</label>
+                    <input type="text" class="form-control" list="symbol-list" placeholder="e.g. AAPL" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Profit (£)</label>
+                        <input type="number" class="form-control" step="0.01" placeholder="e.g. 123.45" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Date</label>
+                        <input type="datetime-local" class="form-control" value="${defaultDateValue}" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Comment (Optional)</label>
+                    <input type="text" class="form-control" placeholder="e.g. News reaction">
+                </div>
+            `;
+            container.appendChild(entryDiv);
+            entryDiv.querySelector('.delete-trade-entry-btn').addEventListener('click', () => entryDiv.remove());
+        }
+
+        async function saveBulkTrades() {
+            const forms = document.querySelectorAll('#add-trade-form-container .trade-entry');
+            if (forms.length === 0) {
+                showMessage('No trades to save.', 'warning', 'bulkTradeMessageBox');
+                return;
+            }
+
+            const newTrades = [];
+            let hasError = false;
+
+            forms.forEach((form, index) => {
+                if (hasError) return;
+                const inputs = form.querySelectorAll('input');
+                const symbol = inputs[0].value.trim();
+                const profit = parseFloat(inputs[1].value);
+                const openTime = inputs[2].value;
+                const notes = inputs[3].value.trim();
+
+                if (!symbol || isNaN(profit) || !openTime) {
+                    showMessage(`Trade ${index + 1} is incomplete or invalid.`, 'error', 'bulkTradeMessageBox');
+                    hasError = true;
+                    return;
+                }
+                newTrades.push({ id: generateUniqueId(), symbol, profit, openTime: new Date(openTime).toISOString(), notes });
+            });
+
+            if (hasError) return;
+
+            allTrades.push(...newTrades);
+            await updateGistWithTrades(allTrades);
+            refreshAllDataAndUI();
+            addTradeModalInstance.hide();
+            alert(`${newTrades.length} trade(s) added successfully!`);
+        }
+        
+        async function handleCellEdit(e) {
+            const cell = e.target.closest('td.editable');
+            if (!cell) return;
+            const row = cell.parentElement;
+            const tradeId = row.dataset.tradeId;
+            const field = cell.dataset.field;
+            const tradeIndex = allTrades.findIndex(t => t.id === tradeId);
+            if (tradeIndex === -1) return;
+
+            let newValue = cell.textContent.trim();
+            if (field === 'profit') newValue = parseFloat(newValue);
+            else if (field === 'openTime') newValue = new Date(newValue).toISOString();
+            
+            if (allTrades[tradeIndex][field] !== newValue) {
+                allTrades[tradeIndex][field] = newValue;
+                await updateGistWithTrades(allTrades);
+                updateProfitCards(allTrades);
+            }
+        }
+        
+        async function saveTargets() {
+            const monthlyInput = document.getElementById('monthlyTargetInput');
+            monthlyTargetValue = parseFloat(monthlyInput.value) || 0;
+            weeklyTargetValue = monthlyTargetValue / 4;
+            dailyTargetValue = monthlyTargetValue / 20;
+            
+            await db.put(STORE_NAMES.APP_SETTINGS, { key: 'monthlyTarget', value: monthlyTargetValue });
+            showMessage("Profit targets saved!", 'success', 'targetMessageBox');
+            refreshAllDataAndUI();
+            setTimeout(() => setTargetsModalInstance.hide(), 1000);
+        }
+
+        async function initApp() {
+            showLoading(true, "Initializing...");
+            await initDB();
+            
+            const gistIdSetting = await db.get(STORE_NAMES.GIST_SETTINGS, 'gistId');
+            if (gistIdSetting) GIST_ID = gistIdSetting.value;
+            const githubPatSetting = await db.get(STORE_NAMES.GIST_SETTINGS, 'githubPat');
+            if (githubPatSetting) GITHUB_PAT = githubPatSetting.value;
+            const gistFilenameSetting = await db.get(STORE_NAMES.GIST_SETTINGS, 'gistFilename');
+            if (gistFilenameSetting) GIST_FILENAME = gistFilenameSetting.value;
+            
+            document.getElementById('gistIdInput').value = GIST_ID;
+            document.getElementById('githubPatInput').value = GITHUB_PAT;
+            document.getElementById('gistFilenameInput').value = GIST_FILENAME;
+
+            const darkModeSetting = await db.get(STORE_NAMES.APP_SETTINGS, 'darkMode');
+            if (darkModeSetting?.value) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeToggleSetting').checked = true;
+            }
+
+            const monthlyTargetSetting = await db.get(STORE_NAMES.APP_SETTINGS, 'monthlyTarget');
+            if (monthlyTargetSetting) {
+                monthlyTargetValue = monthlyTargetSetting.value;
+                weeklyTargetValue = monthlyTargetValue / 4;
+                dailyTargetValue = monthlyTargetValue / 20;
+            }
+
+            allTrades = await fetchTradesFromGist();
+            initializeCharts();
+            setupEventListeners();
+            refreshAllDataAndUI();
+            showLoading(false);
+        }
+
+        function initializeCharts() {
+            // Main profit chart
+            const ctx = document.getElementById('overallProfitChart');
+            if (ctx) {
+                overallProfitChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets: [{ label: 'Cumulative Profit (£)', data: [], borderColor: 'var(--primary-color)', tension: 0.1, fill: false }] },
+                    options: { scales: { x: { type: 'time', time: { unit: 'day' } } } }
+                });
+            }
+            // Doughnut charts for targets
+            const doughnutOptions = { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false } } };
+            const dailyCtx = document.getElementById('dailyTargetChart');
+            if(dailyCtx) dailyTargetChart = new Chart(dailyCtx, { type: 'doughnut', data: { datasets: [{ data: [0, 100], backgroundColor: ['#4f46e5', '#e5e7eb'], borderWidth: 0 }] }, options: doughnutOptions });
+            const weeklyCtx = document.getElementById('weeklyTargetChart');
+            if(weeklyCtx) weeklyTargetChart = new Chart(weeklyCtx, { type: 'doughnut', data: { datasets: [{ data: [0, 100], backgroundColor: ['#10b981', '#e5e7eb'], borderWidth: 0 }] }, options: doughnutOptions });
+            const monthlyCtx = document.getElementById('monthlyTargetChart');
+            if(monthlyCtx) monthlyTargetChart = new Chart(monthlyCtx, { type: 'doughnut', data: { datasets: [{ data: [0, 100], backgroundColor: ['#f59e0b', '#e5e7eb'], borderWidth: 0 }] }, options: doughnutOptions });
+        }
+
+        function setupEventListeners() {
+            addTradeModalInstance = new bootstrap.Modal(document.getElementById('addTradeModal'));
+            confirmModalInstance = new bootstrap.Modal(document.getElementById('customConfirmModal'));
+            setTargetsModalInstance = new bootstrap.Modal(document.getElementById('setTargetsModal'));
+
+            document.querySelectorAll('.nav-link[data-section]').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.content-page').forEach(p => p.classList.remove('active'));
+                    document.getElementById(e.target.dataset.section).classList.add('active');
+                    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                    e.target.classList.add('active');
+                    const navbar = document.getElementById('navbarNav');
+                    if (navbar.classList.contains('show')) new bootstrap.Collapse(navbar).hide();
+                });
+            });
+
+            document.getElementById('showTradeFormLink').addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('add-trade-form-container').innerHTML = '';
+                addTradeEntryForm();
+                addTradeModalInstance.show();
+            });
+            
+            document.getElementById('addAnotherTradeBtn').addEventListener('click', addTradeEntryForm);
+            document.getElementById('saveBulkTradesButton').addEventListener('click', saveBulkTrades);
+            document.getElementById('filterSymbol').addEventListener('input', () => refreshAllDataAndUI());
+            document.getElementById('groupByStockToggle').addEventListener('change', (e) => {
+                isGroupedByStock = e.target.checked;
+                refreshAllDataAndUI();
+            });
+            
+            document.getElementById('darkModeToggleSetting').addEventListener('change', async (e) => {
+                document.body.classList.toggle('dark-mode', e.target.checked);
+                await db.put(STORE_NAMES.APP_SETTINGS, { key: 'darkMode', value: e.target.checked });
+            });
+
+            document.getElementById('deleteAllDataButtonSetting').addEventListener('click', deleteAllUserData);
+            document.getElementById('saveGistSettingsButton').addEventListener('click', saveGistSettings);
+            
+            document.getElementById('setTargetsButton').addEventListener('click', () => {
+                document.getElementById('monthlyTargetInput').value = monthlyTargetValue;
+                document.getElementById('weeklyTargetDisplay').value = formatCurrency(weeklyTargetValue);
+                document.getElementById('dailyTargetDisplay').value = formatCurrency(dailyTargetValue);
+                setTargetsModalInstance.show();
+            });
+
+            document.getElementById('monthlyTargetInput').addEventListener('input', (e) => {
+                const monthly = parseFloat(e.target.value) || 0;
+                document.getElementById('weeklyTargetDisplay').value = formatCurrency(monthly / 4);
+                document.getElementById('dailyTargetDisplay').value = formatCurrency(monthly / 20);
+            });
+            
+            document.getElementById('saveTargetsButton').addEventListener('click', saveTargets);
+
+            document.getElementById('exportCsvButton').addEventListener('click', () => {
+                const headers = ['Symbol', 'Profit', 'Date', 'Comment'];
+                const rows = allTrades.map(t => [t.symbol, t.profit, new Date(t.openTime).toISOString(), t.notes].join(','));
+                const csv = [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", "tradeflow_export.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+            
+            const tradeTableBody = document.querySelector('#tradeTable tbody');
+            tradeTableBody.addEventListener('focusout', handleCellEdit);
+            tradeTableBody.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('delete-trade-btn')) {
+                    const tradeId = e.target.closest('tr').dataset.tradeId;
+                    const confirmed = await customConfirm('Delete Trade', 'Are you sure?');
+                    if (confirmed) {
+                        allTrades = allTrades.filter(t => t.id !== tradeId);
+                        await updateGistWithTrades(allTrades);
+                        refreshAllDataAndUI();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        // --- PWA Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js').then(registration => {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            }, err => {
+              console.log('ServiceWorker registration failed: ', err);
+            });
+          });
+        }
+    </script>
+</body>
+</html>
